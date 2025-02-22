@@ -354,37 +354,23 @@ class Bypass(BaseExtractor):
                 result = recursive_choice(extractor, result)
         return result
 
-def safe_removeprefix(text, prefix):
-    return text[text.startswith(prefix) and len(prefix):]
 
+# lazy method
 allBypassPattern = []
 pattern = re.compile(r"regex *: *(.+)(?:\n|$)")
-
 for key, value in inspect.getmembers(Bypass):
     if key.startswith("bypass_") and key != "bypass_url":
         for urlPattern in pattern.findall(value.__doc__ or ""):
-            if key not in Bypass.bypassPattern:
-                Bypass.bypassPattern[key] = {"pattern": set(), "support": set()}
-
-            Bypass.bypassPattern[key]["pattern"].add(
-                re.compile(urlPattern)
-            )
+            Bypass.bypassPattern[key]["pattern"].add(re.compile(urlPattern))
             allBypassPattern.append(urlPattern)
-
         if (allPattern := Bypass.bypassPattern.get(key)):
             for rule in allPattern["pattern"]:
-                valid_regex = re.sub(
-                    r".+?[+*]?\??|[a-zA-Z][+*]?\??", "id", rule.pattern
-                )
-                valid_regex = re.sub(r"\.[*+]\??", "any", valid_regex)
-
+                valid_regex = re.sub(r".+?[+*]\??|\a-zA-Z][+*]\??", "[id]", rule.pattern)
+                valid_regex = re.sub(r"\.[*+]\??", "[any]", valid_regex)
                 for url in exrex.generate(valid_regex):
                     try:
-                        netloc = urlparse(url).netloc
-                        clean_netloc = safe_removeprefix(netloc, "www.")
-                        Bypass.bypassPattern[key]["support"].add(clean_netloc)
-                    except Exception:
-                        continue
-
-if allBypassPattern:
-    Bypass.allBypassPattern = re.compile("|".join(allBypassPattern))
+                        domain = removeprefix(urlparse(url).netloc, "www.")
+                    except ValueError:
+                        domain = ""
+                    Bypass.bypassPattern[key]["support"].add(domain)
+Bypass.allBypassPattern = re.compile(r"|".join(allBypassPattern))
