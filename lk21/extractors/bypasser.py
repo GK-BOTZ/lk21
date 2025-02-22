@@ -363,6 +363,9 @@ pattern = re.compile(r"regex *: *(.+)(?:\n|$)")
 for key, value in inspect.getmembers(Bypass):
     if key.startswith("bypass_") and key != "bypass_url":
         for urlPattern in pattern.findall(value.__doc__ or ""):
+            if key not in Bypass.bypassPattern:
+                Bypass.bypassPattern[key] = {"pattern": set(), "support": set()}
+
             Bypass.bypassPattern[key]["pattern"].add(
                 re.compile(urlPattern)
             )
@@ -371,7 +374,8 @@ for key, value in inspect.getmembers(Bypass):
         if (allPattern := Bypass.bypassPattern.get(key)):
             for rule in allPattern["pattern"]:
                 valid_regex = re.sub(
-                    r".+?[+*]\??|\a-zA-Z][+*]\??", "id", rule.pattern)
+                    r".+?[+*]?\??|[a-zA-Z][+*]?\??", "id", rule.pattern
+                )
                 valid_regex = re.sub(r"\.[*+]\??", "any", valid_regex)
 
                 for url in exrex.generate(valid_regex):
@@ -379,7 +383,8 @@ for key, value in inspect.getmembers(Bypass):
                         netloc = urlparse(url).netloc
                         clean_netloc = safe_removeprefix(netloc, "www.")
                         Bypass.bypassPattern[key]["support"].add(clean_netloc)
-                    except ValueError:
+                    except Exception:
                         continue
 
-Bypass.allBypassPattern = re.compile(r"|".join(allBypassPattern))
+if allBypassPattern:
+    Bypass.allBypassPattern = re.compile("|".join(allBypassPattern))
